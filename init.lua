@@ -5,6 +5,7 @@ vim.opt.smartindent = true -- Insert indents automatically
 vim.g.mapleader = " "
 vim.opt.undofile = true
 vim.opt.clipboard = "unnamedplus"
+vim.opt.tags:append(".tags")
 
 -- Set the directory where undo history will be stored
 -- Using a dedicated path keeps your project folders clean
@@ -48,7 +49,7 @@ local function mise_tasks_picker()
   local action_state = require("telescope.actions.state")
 
   -- Get mise tasks in JSON format
-  local handle = io.popen("mise tasks ls --json")
+  local handle = io.popen("mise tasks ls -l --json")
   local result = handle:read("*a")
   handle:close()
 
@@ -66,8 +67,10 @@ local function mise_tasks_picker()
       actions.select_default:replace(function()
         actions.close(prompt_bufnr)
         local selection = action_state.get_selected_entry()
-        -- Open a terminal and run the selected mise task
-        vim.cmd("split | term mise run " .. selection[1])
+        -- Create terminal at bottom
+        vim.cmd("botright split | term mise run " .. selection[1])
+        -- Hide from buffer lists
+        vim.api.nvim_buf_set_option(0, 'buflisted', false)
       end)
       return true
     end,
@@ -76,7 +79,25 @@ end
 
 require("lazy").setup({
   -- Finder & Grepper
-  { 'nvim-telescope/telescope.nvim', dependencies = { 'nvim-lua/plenary.nvim' } },
+  {
+    'nvim-telescope/telescope.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('telescope').setup({
+        pickers = {
+          buffers = {
+            mappings = {
+              i = {
+                ["<c-d>"] = "delete_buffer",
+              },
+            },
+            ignore_current_buffer = true,
+            sort_mru = true,
+          },
+        },
+      })
+    end,
+  },
 
   -- Treesitter for Syntax Highlighting
   { 
@@ -90,6 +111,7 @@ require("lazy").setup({
   dependencies = { 
     "hrsh7th/cmp-buffer",   -- Source for words in the current file
     "hrsh7th/cmp-path",     -- Source for file system paths
+    "quangnguyen30192/cmp-nvim-tags",
   },
   config = function()
     local cmp = require("cmp")
@@ -105,6 +127,7 @@ require("lazy").setup({
       sources = cmp.config.sources({
         { name = 'buffer' }, -- Suggests words from current file
         { name = 'path' },   -- Suggests file paths when typing /
+        { name = 'tags' },   -- Suggests file paths when typing /
       })
     })
   end,
@@ -129,7 +152,7 @@ require("lazy").setup({
   },
   {
     'numToStr/Comment.nvim',
-    opts = {},
+    opts = {}
   },
 
   -- The popup menu for keybindings
@@ -160,7 +183,10 @@ require("lazy").setup({
 
 
 require'nvim-treesitter.configs'.setup {
-  highlight = { enable = true },
+  highlight = { 
+    enable = true,
+    additional_vim_regex_highlighting = true,
+  },
   indent = { enable = true }, -- This powers the '=' operator with Treesitter
   auto_install = true,
 }
